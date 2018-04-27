@@ -1,4 +1,4 @@
-
+var globalData = require('globalData');
 cc.Class({
 	
 	//name:"bullet",
@@ -13,7 +13,7 @@ cc.Class({
 			default:null,
 			type:cc.Node
 		},
-		rootComponent:{
+		drawCanvas:{
 			default:null,
 			type:cc.Node
 		},
@@ -40,21 +40,10 @@ cc.Class({
     // LIFE-CYCLE CALLBACKS:
 
     onLoad () {
-		var self = this;
-		var remoteUrl="https://wx.qlogo.cn/mmopen/vi_32/Q0j4TwGTfTIGJlkCBSm96XXARNuOoxsOcwib92iaXic1827J0tSxCDemia25g8Pibx6rnnSA2wXdNBLHXGibYweia5Ggg/0";
-		this.deps=cc.loader.load({url: remoteUrl, type: 'jpg'}, function (err, texture) {
-			
-			var frame = new cc.SpriteFrame(texture);
-			self.node.getComponent(cc.Sprite).spriteFrame = frame;
-			//self.node.getComponent(cc.Sprite).spriteFrame.setTexture (texture); //千万不能直接加载图片，不然一是有时不能完整加载，偶尔还要报错
-			//self.node.getComponent(cc.Sprite).Width=w;
-			//self.node.getComponent(cc.Sprite).Height=h;
-			//console.log(self.node.getComponent(cc.Sprite).Width+"   sss   "+self.node.getComponent(cc.Sprite).Width)
-		});
 		
 		
 		//得到当前关卡的的全关卡变量
-		this.global = cc.find("Canvas").getComponent("globalJS");
+		this.global = cc.find("Canvas").getComponent("levelDataJS");
 		
 		//得到左右两个锚点以及中点的坐标，用于绘图
 		this.leftAnchorPosition=this.leftAnchor.getPosition();
@@ -62,63 +51,91 @@ cc.Class({
 		this.originalMiddlePosition=this.leftAnchorPosition.add(this.rightAnchorPosition).mulSelf(0.5);
 		
 		//绘图
-		this.drawGraphics = this.rootComponent.getComponent(cc.Graphics);
-		
+		this.drawGraphics = this.drawCanvas.getComponent(cc.Graphics);
+		//globalData.drawGraphics=this.drawGraphics;
+
 		//物理引擎
 		this.rigidBody=this.node.getComponent(cc.RigidBody);
 	    //this.rigidBody.active=false;
-		
+
+		var touchposition_x_left=0;
+		var touchposition_y_right=0;
 		//移动子弹
 		this.node.on('touchmove',function(event){
-			if(event.getLocation().y<=this.originalMiddlePosition.y){
-				this.node.setPosition(event.getLocation());
+			if(globalData.gameState==='begine'){
+                if(globalData.seat==='right'){
+                    touchposition_x_left=event.getLocation().x-cc.view.getFrameSize().width*0.5;
+                    console.log( touchposition_x_left);
+                    // touchposition_y_right=cc.view.getFrameSize().width*0.5;
+                }else {
+                    touchposition_x_left=event.getLocation().x;
+                };
+
+                if((event.getLocation().y<=this.originalMiddlePosition.y)&( touchposition_x_left<(cc.view.getFrameSize().width*0.5))&touchposition_x_left>(-10)){
+                    this.node.setPosition( touchposition_x_left,event.getLocation().y);
+
+                }
+
 			}
+
 		},this);
 		
 		//'touchstart'
 		this.node.on('touchstart',function(event){
-			this.rigidBody.active=false;
-			
+            if(globalData.gameState==='begine') {
+                this.rigidBody.active = false;
+            }
 		},this);
 		
 		
 		//释放子弹
 		this.node.on('touchend',function(event){
-			
-			if(this.global.bulletsNumber>0&event.getLocation().y<(this.originalMiddlePosition.y-20)){
-				this.rigidBody.active=true;
-				//console.log(this.bulletParticle.getComponent(cc.ParticleSystem));
-				this.fireAudioSource.play();
-				this.bulletParticle.getComponent(cc.ParticleSystem).resetSystem();//增加特效
-				this.bulletParticle.active=true;
-				this.canFire = true;
-				this.global.bulletsNumber--;
-			}else{
-				
-				this.node.setPosition(this.originalMiddlePosition);
-				
-			};
-			
+            if(globalData.gameState==='begine') {
+                if (event.getLocation().y < (this.originalMiddlePosition.y - 20)) {
+                    console.log('touchend');
+                    this.rigidBody.active = true;
+                    //console.log(this.bulletParticle.getComponent(cc.ParticleSystem));
+                    this.fireAudioSource.play();
+                    this.bulletParticle.getComponent(cc.ParticleSystem).resetSystem();//增加特效
+                    this.bulletParticle.active = true;
+                    globalData.sendToServer('Particleactive', 'bulletParticleactive', "");
+                    this.canFire = true;
+
+                } else {
+                    this.node.setPosition(this.originalMiddlePosition);
+                }
+                ;
+            }
 		},this);
 		
 		//手指移动到屏幕以外
 		this.node.on('touchcancel',function(event){
+            if(globalData.gameState==='begine'){
 			this.rigidBody.active=true;
 			if(this.global.bulletsNumber>0){
 				this.canFire = true;
 				this.global.bulletsNumber--;
 			};
+            }
 		},this);
-		
-
 	},
 	
 	//开火
 	Fire:function(locationA){
 		var force = (cc.pSub(this.originalMiddlePosition,locationA)).mul(this.k);
 		this.rigidBody.applyForceToCenter(force);
-		
-	},
+    },
+
+    //击中目标
+    onCollisionEnter: function (other, self) {
+        this.rigidBody.linearVelocity = new cc.Vec2(0,0);
+        this.node.setPosition(this.originalMiddlePosition);
+        this.rigidBody.active=false;
+        this.bulletParticle.getComponent(cc.ParticleSystem).resetSystem();
+        this.bulletParticle.active=false;
+        //this.global.bulletsNumber++;
+        globalData.sendToServer('fireResult','catchBird',{seat:globalData.seat});
+    },
 	
     //子弹脱离前绘制弓弦
 	drawLine:function (){
@@ -140,15 +157,7 @@ cc.Class({
 		this.drawGraphics.stroke();
 	},
 
-	//击中目标
-	onCollisionEnter: function (other, self) {
-		this.rigidBody.linearVelocity = new cc.Vec2(0,0);
-		this.node.setPosition(this.originalMiddlePosition);
-		this.rigidBody.active=false;
-		this.bulletParticle.getComponent(cc.ParticleSystem).resetSystem();
-		this.bulletParticle.active=false;
-		this.global.bulletsNumber++;
-	},
+
 	
 	onEnable(){
 		this.rigidBody.linearVelocity = new cc.Vec2(0,0);
@@ -159,8 +168,8 @@ cc.Class({
 	
 	onDisable (){
 		//this.rigidBody.active=false;
-	
 	},
+
     start () {
 		this.rigidBody.active=false;  //初始化时只有这里设置才有用其它几个地方（onenable,onload等）特么没用！！start只在第一次运行脚本的时候执行！！
 		
@@ -175,29 +184,38 @@ cc.Class({
 		//console.log("aaaaaaaa "+this.rigidBody.active);
 		//得到子弹当前的位置
 		var locationSelf = this.node.getPosition();
-		//子弹飞出
+
+
+        //子弹飞出
 		if(this.canFire){
-			
 			this.Fire(locationSelf);
 			if(locationSelf.y>this.originalMiddlePosition.y){
 				this.canFire=false;
 			};
+            //将位置信息发送给服务器同步
+            globalData.sendToServer('move','bulletfly',locationSelf);
+		}else {
+			if(globalData.gameState==='begine'){
+				//console.log(this.node);
+                globalData.sendToServer('move','bulletmove',locationSelf);
+			}
+
+
 		};
 		
 		//没有击中目标时
-		if(locationSelf.y>cc.view.getFrameSize().height|locationSelf.y<(-10)|locationSelf.x>cc.view.getFrameSize().width|locationSelf.x<0|locationSelf.y<(-10)){
-			this.rigidBody.linearVelocity = new cc.Vec2(0,0);
-			this.node.setPosition(this.originalMiddlePosition)
-			this.rigidBody.active=false;
-			this.bulletParticle.active=false;
-			//游戏结束
-			if(true){
-				this.rigidBody.active=false;
-				console.log("aaaaaaaa "+this.rigidBody.active);
-				cc.find("Canvas/RootComponent").active=false;
-				cc.find("Canvas/Menu").active=true;
-				this.rigidBody.active=false;
-			};
+		if(locationSelf.y>cc.view.getFrameSize().height|locationSelf.y<(-10)|locationSelf.x>globalData.X_RightBount|locationSelf.x<globalData.X_LeftBound){
+			console.log("locationSelf.x    "+locationSelf.x);
+
+            globalData.sendToServer('fireResult','outBound',"");
+
+            this.rigidBody.linearVelocity = new cc.Vec2(0,0);
+            this.node.setPosition(this.originalMiddlePosition);
+            this.rigidBody.active=false;
+            this.bulletParticle.getComponent(cc.ParticleSystem).resetSystem();
+            this.bulletParticle.active=false;
+
+
 		};
 		
 		//绘制弓弦
@@ -206,8 +224,7 @@ cc.Class({
 		}else{
 			this.drawCurve();
 		}
-		
-		
+
 	},
 	
 });

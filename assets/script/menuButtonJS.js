@@ -1,12 +1,4 @@
-// Learn cc.Class:
-//  - [Chinese] http://docs.cocos.com/creator/manual/zh/scripting/class.html
-//  - [English] http://www.cocos2d-x.org/docs/creator/en/scripting/class.html
-// Learn Attribute:
-//  - [Chinese] http://docs.cocos.com/creator/manual/zh/scripting/reference/attributes.html
-//  - [English] http://www.cocos2d-x.org/docs/creator/en/scripting/reference/attributes.html
-// Learn life-cycle callbacks:
-//  - [Chinese] http://docs.cocos.com/creator/manual/zh/scripting/life-cycle-callbacks.html
-//  - [English] http://www.cocos2d-x.org/docs/creator/en/scripting/life-cycle-callbacks.html
+var globalData = require('globalData');
 
 cc.Class({
     extends: cc.Component,
@@ -18,21 +10,32 @@ cc.Class({
     // LIFE-CYCLE CALLBACKS:
 
 	ContinueButtonClick:function(data){
-		
-		this.global = cc.find("Canvas").getComponent("globalJS");
-		this.global.score=0;
-		this.global.bulletsNumber=1;//参数复位
-		
-		cc.find("Canvas/RootComponent").active=true;
-		cc.find("Canvas/Menu").active=false;
-		cc.director.loadScene("FirstLevel");
+       // globalData.gameState==="over"
+		//globalData.socket.close();
+		//cc.director.loadScene("StartLevel");
+        // globalData.sendToServer('game','continuegame','');
+        // if(globalData.gameState==="ready"){
+         //    globalData.gameState="begine";
+		// }else {
+         //    globalData.gameState="ready";
+		// }
+
+
 	},
 	
 	QuitButtonClick:function(data){
+
+        globalData.sendToServer('game','quitgame','');
 		cc.game.end();
 	},
-	
-    // onLoad () {},
+
+
+	gameOver:function (data) {
+        globalData.sendToServer('game','gameover','');
+    },
+    onLoad () {
+
+	},
 
     start () {
 

@@ -1,32 +1,13 @@
-// Learn cc.Class:
-//  - [Chinese] http://docs.cocos.com/creator/manual/zh/scripting/class.html
-//  - [English] http://www.cocos2d-x.org/docs/creator/en/scripting/class.html
-// Learn Attribute:
-//  - [Chinese] http://docs.cocos.com/creator/manual/zh/scripting/reference/attributes.html
-//  - [English] http://www.cocos2d-x.org/docs/creator/en/scripting/reference/attributes.html
-// Learn life-cycle callbacks:
-//  - [Chinese] http://docs.cocos.com/creator/manual/zh/scripting/life-cycle-callbacks.html
-//  - [English] http://www.cocos2d-x.org/docs/creator/en/scripting/life-cycle-callbacks.html
-
+var globalData = require('globalData');
+import io from 'socket.io';
 cc.Class({
     extends: cc.Component,
 
     properties: {
-        // foo: {
-        //     // ATTRIBUTES:
-        //     default: null,        // The default value will be used only when the component attaching
-        //                           // to a node for the first time
-        //     type: cc.SpriteFrame, // optional, default is typeof default
-        //     serializable: true,   // optional, default is true
-        // },
-        // bar: {
-        //     get () {
-        //         return this._bar;
-        //     },
-        //     set (value) {
-        //         this._bar = value;
-        //     }
-        // },
+        network:{
+            default:null,
+            type:cc.Node
+        }
     },
 
     // LIFE-CYCLE CALLBACKS:
@@ -46,13 +27,64 @@ cc.Class({
     },
 	
     onLoad () {
+       
+        cc.game.addPersistRootNode(this.network);
+        //连接服务器
+        this.socket = io('http://207.148.86.78:3000');
+        globalData.socket=this.socket;
+
+        globalData.socket.on('connect',function(){
+            console.log("已连接");
+
+
+            globalData.selfInfo.picture="https://wx.qlogo.cn/mmopen/vi_32/Q0j4TwGTfTIGJlkCBSm96XXARNuOoxsOcwib92iaXic1827J0tSxCDemia25g8Pibx6rnnSA2wXdNBLHXGibYweia5Ggg/0";
+            globalData.selfInfo.name="大勇";
+
+
+        });
+
+        globalData.socket.on('disconnect',function(){
+            console.log("连接已断开");
+        });
+
+        globalData.socket.on('game',(data)=>{
+            if(data.type==='gameover'){
+                cc.game.end();
+                cc.find("Canvas/RootComponent").active=false;
+                cc.find("Canvas/Menu").active=true;
+                globalData.gameState='over';
+
+            }else if(data.type==="continuegame"){
+                if(globalData.gameState==='ready'){
+                    globalData.gameState='begine';
+                }else {
+                    globalData.gameState='ready'
+                }
+
+            }
+            else if(data.type==='quitgame'){
+                cc.game.end();
+            }else if(data.type==='allPlayerJoin'){    //同步玩家信息
+                globalData.sendToServer("game","playerinfo",{seat:globalData.seat,info:globalData.selfInfo});
+                globalData.gameState='begine';
+            }else if(data.type==='playerinfo'){
+                if(data.data.seat!==globalData.seat){
+                    globalData.rivalInfo=data.data.info;
+                }
+            }
+        });
+
+
+        //初始化物理世界
 		 this.initPhysicalWorld();
-		 //console.log("iiiiiiiiiiii");
+
 	},
 
     start () {
 
     },
 
-    // update (dt) {},
+    update (dt) {
+        //console.log("gggggggggg");
+    },
 });

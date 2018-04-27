@@ -1,3 +1,4 @@
+var globalData = require('globalData');
 
 cc.Class({
     extends: cc.Component,
@@ -20,7 +21,8 @@ cc.Class({
 			let bird = cc.instantiate(this.enemyPrefab);
 			this.birdsPool.put(bird);
 		}
-		this.birdsInSecen=0;
+		this.birdsInSecen=1;
+
 	},
 
 	//创建bird
@@ -49,8 +51,8 @@ cc.Class({
 
     update:function (dt) {
 		
-		if(this.birdsInSecen<3){
-			this.createBird();
-		}
+		// if(this.birdsInSecen<1){
+		// 	this.createBird();
+		// }
 	},
 });
